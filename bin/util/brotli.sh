@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# install brotli
+
 install_brotli() {
     command="nginx -v"
     nginxv=$( ${command} 2>&1 )
