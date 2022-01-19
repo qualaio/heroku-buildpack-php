@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# install brotli
+install_brotli() {
+    command="nginx -v"
+    nginxv=$( ${command} 2>&1 )
+    NGINX_VERSION=$(echo $nginxv | grep -o '[0-9.]*$')
+    echo "=== Check the nginx version: $NGINX_VERSION ==="
+
+    root_dir="$1/_nginx"
+    OUT_PREFIX="/app/.heroku/php"
+    ETC=${OUT_PREFIX}/etc
+    VAR=${OUT_PREFIX}/var
+
+    mkdir ${root_dir}
+
+    cd ${root_dir}
+    wget https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz
+    tar zxvf nginx-$NGINX_VERSION.tar.gz
+    rm nginx-$NGINX_VERSION.tar.gz
+
+    echo "=== Load nginx-$NGINX_VERSION ==="
+
+    cd ${root_dir}
+    git clone https://github.com/google/ngx_brotli.git
+    cd ${root_dir}/ngx_brotli
+    git submodule update --init
+    cd ${root_dir}
+
+    echo "=== Load ngx_brotli ==="
+
+    cd ${root_dir}/nginx-$NGINX_VERSION
+
+    echo "=== To try configure... ==="
+
+    if [ -d ${root_dir}/ngx_brotli ]
+    then
+    echo "cinfigure brotli dir: $root_dir/ngx_brotli"
+    ./configure \
+        --prefix=${OUT_PREFIX} \
+        --conf-path=${ETC}/nginx/nginx.conf \
+        --pid-path=${VAR}/run/nginx.pid \
+        --lock-path=${VAR}/run/nginx.lock \
+        --http-client-body-temp-path=${VAR}/run/nginx/client_body_temp \
+        --http-proxy-temp-path=${VAR}/run/nginx/proxy_temp \
+        --http-fastcgi-temp-path=${VAR}/run/nginx/fastcgi_temp \
+        --http-uwsgi-temp-path=${VAR}/run/nginx/uwsgi_temp \
+        --http-scgi-temp-path=${VAR}/run/nginx/scgi_temp \
+        --http-log-path=${VAR}/log/nginx/access.log \
+        --error-log-path=${VAR}/log/nginx/error.log \
+        --with-http_realip_module \
+        --with-http_ssl_module \
+        --add-dynamic-module=${root_dir}/ngx_brotli
+
+    echo "=== To try make modules ==="
+    make
+    make install
+    else
+    echo "dir is not exists: $root_dir/ngx_brotli"
+    fi
+
+    cd ${root_dir}
+    cd ..
+    rm -R ${root_dir}
+}
