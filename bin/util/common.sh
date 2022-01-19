@@ -205,7 +205,4 @@ install_brotli() {
 	cd ${root_dir}
 	cd ..
 	rm -R ${root_dir}
-
-
-	exit 0
 }
