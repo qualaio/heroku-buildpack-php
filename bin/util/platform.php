@@ -27,8 +27,8 @@ function getflag($number) {
 }
 
 function mkmetas($package, array &$metapaks, &$have_runtime_req = false) {
-	// filter platform reqs
-	$platfilter = function($v) { return preg_match("#^(php(-64bit)?$|ext-)#", $v); };
+	// filter platform packages - only "php", "php-64bit", and "ext-foobar" (but not "ext-foobar.native")
+	$platfilter = function($v) { return preg_match("#^(php(-64bit)?$|ext-.+(?<!\.native)$)#", $v); };
 	
 	// extract only platform requires, replaces and provides
 	$preq = array_filter(isset($package["require"]) ? $package["require"] : [], $platfilter, ARRAY_FILTER_USE_KEY);
@@ -36,19 +36,6 @@ function mkmetas($package, array &$metapaks, &$have_runtime_req = false) {
 	$ppro = array_filter(isset($package["provide"]) ? $package["provide"] : [], $platfilter, ARRAY_FILTER_USE_KEY);
 	$pcon = array_filter(isset($package["conflict"]) ? $package["conflict"] : [], $platfilter, ARRAY_FILTER_USE_KEY);
 	if(!$preq && !$prep && !$ppro && !$pcon) return false;
-	// for known "polyfill" packages, rewrite any extensions they declare as "provide"d to "replace"
-	// using "provide" will otherwise cause the solver to get stuck on that package from the repository, if it exists, even if it conflicts with other rules (e.g. PHP versions) and could fall back onto that polyfill packge
-	// example: alcaeus/mongo-php-adapter provides "ext-mongo", but installing it together with a PHP 7 requirement will fail, as ext-mongo is only available for PHP 5, and the solver never uses "alcaeus/mongo-php-adapter" as the solution for "ext-mongo" unless it specifies "ext-mongo" in "replace", which it shouldn't, as it's a polyfill (that will quietly let the real extension take over if it's present, e.g. on PHP 5 environments), and not a replacement for the extension
-	// we do not want to do this for all packages that so declare their "provide"s, because many polyfills are just an incomplete or slower fallback (e.g. Symfony mbstring with only UTF-8 support, or intl which is slower than native C ICU bindings), and it's rare that extensions are only available for certain versions of a runtime
-	// see https://github.com/composer/composer/issues/6753
-	if(in_array($package["name"], ["alcaeus/mongo-php-adapter"])) {
-		$prep = $prep + array_filter($ppro, function($k) { return strpos($k, "ext-") === 0; }, ARRAY_FILTER_USE_KEY);
-		$ppro = array_diff_key($ppro, $prep);
-	}
-	// hotfix for https://github.com/heroku/heroku-buildpack-php/issues/528 until Composer2 installer lands: remove ext-* provides from symfony/polyfill-* packages
-	if(strpos($package["name"], "symfony/polyfill-") === 0) {
-		$ppro = array_filter($ppro, function($k) { return strpos($k, "ext-") !== 0; }, ARRAY_FILTER_USE_KEY);
-	}
 	$have_runtime_req |= hasreq($preq);
 	$metapaks[] = [
 		"type" => "metapackage",
@@ -63,15 +50,69 @@ function mkmetas($package, array &$metapaks, &$have_runtime_req = false) {
 	return true;
 }
 
-// remove first arg (0)
-array_shift($argv);
+// parse options/flags, then advance $argv pointer (to skip $0, too)
+$flags = getopt("", ["list-repositories"], $rest_index);
+$argv = array_slice($argv, $rest_index);
+
 // base repos we need - no packagist, and the installer plugin path (first arg)
 $repositories = [
 	["packagist" => false],
 	["type" => "path", "url" => array_shift($argv), "options" => ["symlink" => false]],
 ];
+// little helper for prefixing extension names filtered in repositories below with the correct "heroku-sys/"
+$prefixExtname = function($value) {
+	$value = trim($value);
+	return strpos($value, "/") === false ? "heroku-sys/$value" : $value;
+};
+if(!count($argv)) {
+	file_put_contents("php://stderr", "ERROR: no platform repositories given; aborting.\n");
+	exit(4);
+}
+if(isset($flags['list-repositories'])) {
+	file_put_contents("php://stderr", "\033[1;33mNOTICE:\033[0m Platform repositories used (in lookup order):\n");
+}
 // all other args are repo URLs; they get passed in ascending order of precedence, so we reverse
-foreach(array_reverse($argv) as $repo) $repositories[] = ["type" => "composer", "url" => $repo];
+foreach(array_reverse($argv) as $repo) {
+	$url = parse_url($repo);
+	if(!$url || !isset($url["scheme"]) || !isset($url["host"])) {
+		file_put_contents("php://stderr", "ERROR: could not parse platform repository URL '$repo'.\n");
+		exit(4);
+	}
+	if(isset($flags['list-repositories'])) {
+		file_put_contents(
+			"php://stderr",
+			sprintf(
+				"- %s://%s%s%s\n", # hide auth info and query args
+				$url["scheme"],
+				$url["host"],
+				isset($url["port"]) ? ":".$url["port"] : "",
+				$url["path"]??"/"
+			)
+		);
+	}
+	$repo = ["type" => "composer", "url" => $repo];
+	// allow control of https://getcomposer.org/doc/articles/repository-priorities.md via query args "composer-repository-canonical", "composer-repository-exclude" and "composer-repository-only"
+	if(isset($url["query"])) {
+		parse_str($url["query"], $query); // parse query string into array
+		if(isset($query["composer-repository-canonical"])) {
+			$repo["canonical"] = filter_var($query["composer-repository-canonical"], FILTER_VALIDATE_BOOLEAN);
+		}
+		if(isset($query["composer-repository-exclude"])) {
+			$repo["exclude"] = array_map(
+				$prefixExtname, // add "heroku-sys/" prefix to entries
+				is_array($query["composer-repository-exclude"]) ? $query["composer-repository-exclude"] : explode(",", $query["composer-repository-exclude"])
+			);
+		}
+		if(isset($query["composer-repository-only"])) {
+			$repo["only"] = array_map(
+				$prefixExtname, // add "heroku-sys/" prefix to entries
+				is_array($query['composer-repository-only']) ? $query["composer-repository-only"] : explode(",", $query["composer-repository-only"])
+			);
+		}
+	}
+	
+	$repositories[] = $repo;
+}
 
 $json = json_decode(file_get_contents($COMPOSER), true);
 if(!is_array($json)) exit(1);
@@ -186,7 +227,13 @@ if($have_blackfire === 0 && preg_match("/^Blackfire version (\d+\.\d+\.\d+)/", $
 }
 
 $json = [
-	"config" => ["cache-files-ttl" => 0, "discard-changes" => true],
+	"config" => [
+		"cache-files-ttl" => 0,
+		"discard-changes" => true,
+		"allow-plugins" => [
+			"heroku/installer-plugin" => true
+		],
+	],
 	"minimum-stability" => isset($lock["minimum-stability"]) ? $lock["minimum-stability"] : "stable",
 	"prefer-stable" => isset($lock["prefer-stable"]) ? $lock["prefer-stable"] : false,
 	"provide" => $provide,

@@ -1,5 +1,72 @@
 # heroku-buildpack-php CHANGELOG
 
+## v212 (2021-02-25)
+
+### CHG
+
+- Composer/2.2.7 [David Zuelke]
+
+## v211 (2021-02-22)
+
+### ADD
+
+- PHP/7.4.28 [David Zuelke]
+- PHP/8.0.16 [David Zuelke]
+- PHP/8.1.3 [David Zuelke]
+- ext-blackfire/1.74.1 [David Zuelke]
+- ext-redis/5.3.7 [David Zuelke]
+
+### CHG
+
+- blackfire/2.6.0 [David Zuelke]
+- Composer/2.2.6 [David Zuelke]
+
+## v210 (2021-02-11)
+
+### CHG
+
+- For any PHP extension declared as `provide`d by a userland package ("polyfill"), attempt explicit installation after main platform install succeeded [David Zuelke]
+
+## v209 (2021-02-10)
+
+(no changes; release bump for rolling out v208 repository update)
+
+## v208 (2021-02-10)
+
+### CHG
+
+- Treat shared PHP extensions the same as third-party extensions during installation e.g. if userland polyfills declare a `provide` for them [David Zuelke]
+
+## v207 (2021-02-07)
+
+### CHG
+
+- Allow control of Composer repository priority for entries in `$HEROKU_PHP_PLATFORM_REPOSITORIES` [David Zuelke]
+
+## v206 (2021-02-01)
+
+### ADD
+
+- PHP/8.0.15 [David Zuelke]
+- PHP/8.1.2 [David Zuelke]
+- ext-blackfire/1.73.0 [David Zuelke]
+- ext-imagick/3.7.0 [David Zuelke]
+- ext-pcov/1.0.11 [David Zuelke]
+- ext-phalcon/4.1.3 [David Zuelke]
+- ext-rdkafka/6.0.0 [David Zuelke]
+- ext-redis/5.3.6 [David Zuelke]
+- Apache/2.4.52 [David Zuelke]
+
+### CHG
+
+- Use Composer 2 for platform installation step [David Zuelke]
+- Composer/1.10.25 [David Zuelke]
+- Composer/2.2.5 [David Zuelke]
+
+### FIX
+
+- Userland packages declaring PHP extensions as provided cause platform installation failure [David Zuelke]
+
 ## v205 (2021-01-07)
 
 ### FIX

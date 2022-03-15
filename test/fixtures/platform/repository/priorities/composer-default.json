@@ -1,5 +1,8 @@
 {
     "config": {
+        "allow-plugins": {
+            "heroku/installer-plugin": true
+        },
         "cache-files-ttl": 0,
         "discard-changes": true,
         "secure-http": false
@@ -11,11 +14,7 @@
     },
     "replace": {},
     "require": {
-        "composer.json\/composer.lock": "dev-fc385a27e5169a169062c230878645d1",
-        "heroku-sys\/composer": "*",
-        "heroku-sys\/composer-plugin-api": "^2",
-        "heroku-sys\/apache": "^2.4.10",
-        "heroku-sys\/nginx": "^1.8.0"
+        "composer-default.json\/composer-default.lock": "dev-fc385a27e5169a169062c230878645d1"
     },
     "require-dev": {},
     "repositories": [
@@ -31,6 +30,10 @@
         },
         {
             "type": "composer",
+            "url": "http://localhost:8080/packages-custom.json"
+        },
+        {
+            "type": "composer",
             "url": "http://localhost:8080/packages.json"
         },
         {
@@ -38,18 +41,12 @@
             "package": [
                 {
                     "type": "metapackage",
-                    "name": "composer.json\/composer.lock",
+                    "name": "composer-default.json\/composer-default.lock",
                     "version": "dev-fc385a27e5169a169062c230878645d1",
                     "require": {
                         "heroku-sys\/php": "8.*",
-                        "heroku-sys\/ext-gmp": "*",
-                        "heroku-sys\/ext-intl": "*",
-                        "heroku-sys\/ext-mbstring": "*",
-                        "heroku-sys\/ext-redis": "*",
-                        "heroku-sys\/ext-sqlite3": "*",
-                        "heroku-sys\/ext-ldap": "*",
-                        "heroku-sys\/ext-imap": "*",
-                        "heroku-sys\/ext-blackfire": "*"
+                        "heroku-sys\/ext-igbinary": "*",
+                        "heroku-sys\/ext-redis": "*"
                     },
                     "replace": {},
                     "provide": {},
