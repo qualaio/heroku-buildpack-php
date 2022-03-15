@@ -21,7 +21,15 @@ http {
 
 	server_tokens off;
 
-	fastcgi_buffers 256 4k;
+	fastcgi_buffers 256 16k;
+	fastcgi_buffer_size 128k;
+	fastcgi_connect_timeout 10s;
+	fastcgi_send_timeout 120s;
+	fastcgi_read_timeout 120s;
+	fastcgi_busy_buffers_size 256k;
+	fastcgi_temp_file_write_size 256k;
+	reset_timedout_connection on;
+	
 
 	# define an easy to reference name that can be used in fastgi_pass
 	upstream heroku-fcgi {
